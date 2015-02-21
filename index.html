@@ -6,7 +6,7 @@
     <script src="https://fb.me/JSXTransformer-0.12.0.js"></script>
 
     <!-- Firebase -->
-    <script src="https://cdn.firebase.com/js/client/2.0.1/firebase.js"></script>
+    <script src="https://cdn.firebase.com/js/client/2.0.1/firebase-debug.js"></script>
 
     <!-- ReactFire -->
     <script src="https://cdn.firebase.com/libs/reactfire/0.4.0/reactfire.min.js"></script>
@@ -15,6 +15,84 @@
     <div id="content">
     </div>
     <script type="text/jsx">
+      var ChatBox = React.createClass({
+        mixins: [ReactFireMixin],
+
+        getInitialState: function() {
+          return {messages: []};
+        },
+
+        componentWillMount: function() {
+          this.bindAsArray(new Firebase("https://reachat.firebaseio.com/messages/"), "messages");
+        },
+
+        render: function() {
+          return (
+            <div className="chatBox">
+              <MessageList data={this.state.messages}/>
+              <ChatForm messages={this.firebaseRefs["messages"]} />
+            </div>
+          );
+        }
+      });
+
+      var ChatForm = React.createClass({
+        handleSubmit: function(e) {
+          e.preventDefault();
+          var text = this.refs.text.getDOMNode().value.trim();
+          if (!text) {
+            return;
+          }
+          this.props.messages.push({
+            text: text
+          });
+          this.refs.text.getDOMNode().value = '';
+        },
+
+        render: function() {
+          return(
+            <form className="chatForm" onSubmit={this.handleSubmit}>
+              <input type="text" placeholder="Your message" ref="text" />
+              <input type="submit" value="Post" />
+            </form>
+          );
+        }
+      });
+
+      var MessageList = React.createClass({
+        render: function() {
+          var messageNodes = this.props.data.map(function (message) {
+            return (
+              <Message>
+                {message.text}
+              </Message>
+            );
+          });
+          return (
+            <div className="messageList">
+              {messageNodes}
+            </div>
+          )
+        }
+      });
+
+      var Message = React.createClass({
+        render: function() {
+          return (
+            <div class="message">
+              <p>
+                {this.props.children}
+              </p>
+            </div>
+          )
+        }
+      });
+
+      React.render(
+        <ChatBox />,
+        document.getElementById('content')
+      );
     </script>
+    <script>document.write('<script src="http://' + (location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1"></' + 'script>')</script>
   </body>
 </html>
