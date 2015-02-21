@@ -15,6 +15,98 @@
     <div id="content">
     </div>
     <script type="text/jsx">
+      var UserBox = React.createClass({
+        mixins: [ReactFireMixin],
+
+        getInitialState: function() {
+          return {users: [], onlineUsers: []};
+        },
+
+        componentWillMount: function() {
+          this.bindAsArray(new Firebase("https://reachat.firebaseio.com/users/"), "users");
+          onlineUsersRef = this.firebaseRefs["users"].orderByChild("online").equalTo(true);
+          this.bindAsArray(onlineUsersRef, "onlineUsers");
+        },
+
+        componentDidMount: function() {
+          var _this = this;
+          window.onunload = function() {
+            if (_this.props.currentUser) {
+              new Firebase(_this.props.currentUser.path.toString()).update({online: false});
+            }
+          }
+        },
+
+        handleUserSubmit: function(user) {
+          user.online = true;
+          var userPath = this.firebaseRefs["users"].push(user);
+          this._owner.setState({currentUser: {path: userPath, id: userPath.key(), screenName: user.screenName, email: user.email}});
+        },
+
+        render: function() {
+          if (this.props.currentUser) {
+            var content = <UserList data={this.state.onlineUsers} />
+          } else {
+            var content = <UserForm onUserSubmit={this.handleUserSubmit} />
+          }
+          return (
+            <div className="userBox">
+              {content}
+            </div>
+          );
+        }
+      });
+
+      var UserList = React.createClass({
+        render: function() {
+          var userNodes = this.props.data.map(function (user){
+            return (
+              <User screenName={user.screenName} />
+            );
+          });
+
+          return (
+            <div className="userList">
+              {userNodes}
+            </div>
+          );
+        }
+      });
+
+      var User = React.createClass({
+        render: function() {
+          return (
+            <div class="user">
+              {this.props.screenName}
+            </div>
+          );
+        }
+      });
+
+      var UserForm = React.createClass({
+        handleSubmit: function(e) {
+          e.preventDefault();
+          var screenName = this.refs.screenName.getDOMNode().value.trim();
+          var email = this.refs.email.getDOMNode().value.trim();
+
+          if (!screenName || !email) {
+            return;
+          }
+
+          this.props.onUserSubmit({screenName: screenName, email: email});
+        },
+
+        render: function() {
+          return (
+            <form class="userForm" onSubmit={this.handleSubmit}>
+              <input type="text" placeholder="Your screen name" ref="screenName" />
+              <input type="email" placeholder="Your email" ref="email" />
+              <input type="submit" value="Enter" />
+            </form>
+          );
+        }
+      });
+
       var ChatBox = React.createClass({
         mixins: [ReactFireMixin],
 
@@ -26,11 +118,21 @@
           this.bindAsArray(new Firebase("https://reachat.firebaseio.com/messages/"), "messages");
         },
 
+        handleMessageSubmit: function(message) {
+          message.postedBy = this.props.currentUser.screenName;
+          this.firebaseRefs["messages"].push(message);
+        },
+
         render: function() {
+          if (!!this.props.currentUser) {
+            var chatForm = <ChatForm onMessageSubmit={this.handleMessageSubmit} />;
+          } else {
+            var chatForm = null;
+          }
           return (
             <div className="chatBox">
               <MessageList data={this.state.messages}/>
-              <ChatForm messages={this.firebaseRefs["messages"]} />
+              {chatForm}
             </div>
           );
         }
@@ -43,9 +145,8 @@
           if (!text) {
             return;
           }
-          this.props.messages.push({
-            text: text
-          });
+
+          this.props.onMessageSubmit({text: text});
           this.refs.text.getDOMNode().value = '';
         },
 
@@ -64,6 +165,7 @@
           var messageNodes = this.props.data.map(function (message) {
             return (
               <Message>
+                {message.postedBy}:
                 {message.text}
               </Message>
             );
@@ -88,10 +190,26 @@
         }
       });
 
+      var Chat = React.createClass({
+        getInitialState: function() {
+          return {currentUser: null};
+        },
+
+        render: function() {
+          return (
+            <div className="chat">
+              <UserBox currentUser={this.state.currentUser} />
+              <ChatBox currentUser={this.state.currentUser} />
+            </div>
+          )
+        }
+      });
+
       React.render(
-        <ChatBox />,
+        <Chat />,
         document.getElementById('content')
       );
+
     </script>
     <script>document.write('<script src="http://' + (location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1"></' + 'script>')</script>
   </body>
