@@ -10,6 +10,9 @@
 
     <!-- ReactFire -->
     <script src="https://cdn.firebase.com/libs/reactfire/0.4.0/reactfire.min.js"></script>
+
+    <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.min.js"></script>
   </head>
   <body>
     <div id="content">
@@ -28,19 +31,12 @@
           this.bindAsArray(onlineUsersRef, "onlineUsers");
         },
 
-        componentDidMount: function() {
-          var _this = this;
-          window.onunload = function() {
-            if (_this.props.currentUser) {
-              new Firebase(_this.props.currentUser.path.toString()).update({online: false});
-            }
-          }
-        },
-
         handleUserSubmit: function(user) {
           user.online = true;
           var userPath = this.firebaseRefs["users"].push(user);
-          this._owner.setState({currentUser: {path: userPath, id: userPath.key(), screenName: user.screenName, email: user.email}});
+          userPath.onDisconnect().update({online: false});
+          this._owner.setState({currentUser: {path: userPath.toString(), id: userPath.key(), screenName: user.screenName, email: user.email}});
+          $.cookie("currentUser", userPath.toString(), { expires: 7, path: '/' });
         },
 
         render: function() {
@@ -195,6 +191,31 @@
           return {currentUser: null};
         },
 
+        componentDidMount: function() {
+          this.getCurrentUser();
+        },
+
+        getCurrentUser: function() {
+          var currentUserPath = $.cookie('currentUser');
+          if (!currentUserPath) {
+            return;
+          }
+          var ref = new Firebase(currentUserPath);
+          var _this = this;
+          ref.on("value", function(snapshot) {
+            var user = snapshot.val();
+            _this.setState({currentUser: {
+                id: snapshot.key(), 
+                userPath: snapshot.ref().toString(), 
+                email: user.email, 
+                screenName: user.screenName
+              }
+            });
+          });
+          ref.onDisconnect().update({online: false});
+          ref.update({online: true});
+        },
+
         render: function() {
           return (
             <div className="chat">
@@ -211,6 +232,8 @@
       );
 
     </script>
-    <script>document.write('<script src="http://' + (location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1"></' + 'script>')</script>
+    <script>
+      document.write('<script src="http://' + (location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1"></' + 'script>')
+    </script>
   </body>
 </html>
